@@ -6,7 +6,7 @@ module.exports = class HANDLER_BASE {
         this.db = i.db;
         this.lib = i.lib;
         this.locales = i.locales;
-        this.config = i.config;
+        this.cfg = i.cfg;
     }
     i18n(lang) {
         if (this.locales[lang]) return str => this.locales[lang][str] || str;
@@ -14,13 +14,20 @@ module.exports = class HANDLER_BASE {
     }
     async init() {
         return async (ctx, next) => {
+            if (this.cfg.ip_header) ctx.request.ip = ctx.request.headers[this.cfg.ip_header];
+            else ctx.request.ip =
+                ctx.request.headers['X-Forwarded-For'] ||
+                ctx.request.headers['x-forwarded-for'] ||
+                ctx.request.headers['X-Real-IP'] ||
+                ctx.request.headers['x-real-ip'] ||
+                ctx.request.ip;
             let sessionid = new ObjectID(ctx.cookies.get('sayobot.bbs.sessionid')) || constants.UID_GUEST;
             ctx.session = (await this.db.collection('session').findOne({ _id: sessionid })) || {};
             ctx.session.uid = ctx.session.uid || constants.UID_GUEST;
             Object.assign(ctx.state, constants);
             ctx.state.user = new this.lib.user.user(await this.lib.user.getByUID(ctx.session.uid));
             let languages = (ctx.request.headers['accept-language'] || '').split(';')[0].split(',');
-            let language = this.config.LANGUAGE;
+            let language = this.cfg.LANGUAGE;
             for (let i of languages)
                 if (this.locales[i]) language = i;
             language = ctx.session.language || language;

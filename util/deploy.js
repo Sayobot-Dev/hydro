@@ -25,11 +25,11 @@ async function db_install(db, lib) {
         db.collection('config').createIndex({ 'key': 1 }, { unique: true }),
         db.collection('config').insertOne({ key: 'categories', value: [{ id: 'default', name: 'Default Category' }] })
     ]);
-    await lib.conf.set('bbs.dbver', 1);
+    await lib.conf.set('hydro.dbver', 1);
     log.info('Database installed.');
 }
 module.exports = async (db, lib) => {
-    if (await lib.conf.get('bbs.dbver') != 1) {
+    if (await lib.conf.get('hydro.dbver') != 1) {
         await db_install(db, lib).catch(e => {
             log.error(e);
             log.error('Database installation failed.');

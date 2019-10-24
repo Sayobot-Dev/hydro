@@ -11,6 +11,11 @@ const
 
 exports.errors = require('./util/errors.js');
 exports.log = require('./util/log.js');
+exports.handler = {
+    base: require('./handler/base.js'),
+    trace: require('./handler/trace.js'),
+    user: require('./handler/user.js')
+};
 exports.app = class Hydro extends EventEmitter {
     constructor(Hydro_config) {
         super();
@@ -19,13 +24,11 @@ exports.app = class Hydro extends EventEmitter {
             Hydro_config.preConstruct();
         }
         this.cfg = Hydro_config;
-        this.config = {};
         this.locales = {};
         this.lib = {};
         this.status = {};
         this.sockets = [];
-        this.routes = [];
-        this.routers = [];
+        this.handler = [];
         this.serviceID = new bson.ObjectID();
         this.app = new Koa();
         this.app.keys = this.cfg.keys || ['Hydro'];
@@ -43,21 +46,33 @@ exports.app = class Hydro extends EventEmitter {
         this.router = new Router();
         this.server = require('http').createServer(this.app.callback());
         this.io = require('socket.io')(this.server, { cookie: true });
-        if (!this.cfg.ui_path) this.cfg.ui_path = path.resolve(__dirname, '.uibuild');
-        else this.cfg.ui_path = path.resolve(this.cfg.ui_path);
+        this.cfg.ui_path = path.resolve(this.cfg.ui_path);
         log.log('Using ui folder: ', this.cfg.ui_path);
         if (!fs.existsSync(this.cfg.ui_path)) throw new Error('No UI files found!');
-        this.cfg.app_path = path.resolve(this.cfg.app_path);
-        log.log('Using application folder: ', this.cfg.app_path);
-        if (!fs.existsSync(this.cfg.app_path)) throw new Error('No application found!');
         await this.connectDatabase();
         await this.loadLocale();
         await this.mountLib();
         let deploy = require('./util/deploy.js');
         if (this.cfg.deploy) deploy = this.cfg.deploy;
         if (!await deploy(this.db, this.lib)) return;
-        for (let i of this.cfg.handler) await this.handler(i);
-        this.app.use(this.router.routes()).use(this.router.allowedMethods());
+        for (let i of this.cfg.middleware) {
+            let h = await this.Handler(i);
+            for (let j of h) this.app.use(j);
+        }
+        for (let i in this.cfg.hosts) {
+            let r = new Router();
+            for (let j of this.cfg.hosts[i]) {
+                let h = await this.Handler(j);
+                for (let l of h) r.use(l);
+            }
+            this.handler[i] = r.routes();
+        }
+        this.app.use(async ctx => {
+            if (this.handler[ctx.hostname]) {
+                await this.handler[ctx.hostname](ctx,null);
+                return;
+            }
+        })
         if (this.cfg.postLoad) {
             if (typeof this.cfg.postLoad != 'function') throw new Error('postLoad must be a function!');
             let res = this.cfg.postLoad();
@@ -66,12 +81,12 @@ exports.app = class Hydro extends EventEmitter {
         this.status.loaded = true;
     }
     async listen() {
+        if (!this.status.loaded) return;
         if (this.cfg.preListen) {
             if (typeof this.cfg.preListen != 'function') throw new Error('preListen must be a function!');
             let res = this.cfg.preListen();
             if (res instanceof Promise) await res;
         }
-        if (!this.status.loaded) return;
         await this.server.listen((await this.lib.conf.get('bbs.port')) || '10001');
         if (this.cfg.postListen) {
             if (typeof this.cfg.postListen != 'function') throw new Error('postListen must be a function!');
@@ -118,8 +133,8 @@ exports.app = class Hydro extends EventEmitter {
         await this.setConfig();
         for (let i of this.cfg.lib) await this.Lib(i);
     }
-    async Lib(name) {
-        if (name == '@') {
+    async Lib(lib) {
+        if (lib == '@') {
             let user = require('./lib/user.js');
             this.lib.user = new user({ db: this.db, lib: this.lib });
             let crypto = require('./lib/crypto.js');
@@ -129,53 +144,44 @@ exports.app = class Hydro extends EventEmitter {
             let mail = require('./lib/mail.js');
             this.lib.mail = new mail({ db: this.db, lib: this.lib });
         } else {
-            log.log('Loading lib %s', name);
-            let t = require(path.resolve(this.cfg.app_path, 'lib', name + '.js'));
-            log.log(t);
-            this.lib[name] = new t(this);
+            this.lib[lib.name] = new lib.lib(this);
+            if (this.lib[lib.name].init) {
+                let r = this.lib[lib.name].init();
+                if (r instanceof Promise) await r;
+            }
         }
     }
     async setConfig() {
         for (let i in this.cfg.config)
             await this.lib.conf.set(i, this.cfg.config[i]);
     }
-    async handler(name) {
-        if (name == '@') {
-            this.app.use(require('koa-static')(path.join(this.cfg.ui_path, 'public')));
-            this.app.use(require('koa-morgan')(':method :url :status :res[content-length] - :response-time ms'));
-            this.app.use(require('koa-body')({
-                patchNode: true,
-                multipart: true,
-                formidable: {
-                    uploadDir: path.join(__dirname, 'uploads'),
-                    keepExtensions: true
-                }
-            }));
-            this.app.use(require('koa-nunjucks-2')({
-                ext: 'html',
-                path: path.join(this.cfg.ui_path, 'templates'),
-                nunjucksConfig: {
-                    trimBlocks: true
-                }
-            }));
+    async Handler(target) {
+        if (target == '@') {
+            return [
+                require('koa-static')(path.resolve(this.cfg.ui_path, 'public')),
+                require('koa-morgan')(':method :url :status :res[content-length] - :response-time ms'),
+                require('koa-body')({
+                    patchNode: true,
+                    multipart: true,
+                    formidable: {
+                        uploadDir: path.join(__dirname, 'uploads'),
+                        keepExtensions: true
+                    }
+                }),
+                require('koa-nunjucks-2')({
+                    ext: 'html',
+                    path: path.join(this.cfg.ui_path, 'templates'),
+                    nunjucksConfig: {
+                        trimBlocks: true
+                    }
+                })
+            ]
         } else {
-            try {
-                let t = new (require(path.resolve(__dirname, 'handler', name + '.js')))(this);
-                let r = t.init();
-                if (r instanceof Promise) r = await r;
-                if (typeof r == 'object')
-                    this.router.use(r.routes()).use(r.allowedMethods());
-                else
-                    this.router.use(r);
-            } catch (e) {
-                let t = new (require(path.resolve(this.cfg.app_path, 'handler', name + '.js')))(this);
-                let r = t.init();
-                if (r instanceof Promise) r = await r;
-                if (typeof r == 'object')
-                    this.router.use(r.routes()).use(r.allowedMethods());
-                else
-                    this.router.use(r);
-            }
+            let t = new target(this);
+            let r = t.init();
+            if (r instanceof Promise) r = await r;
+            if (typeof r == 'object') return [r.routes(), r.allowedMethods()];
+            else return [r];
         }
     }
 };
