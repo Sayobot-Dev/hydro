@@ -1,0 +1,68 @@
+{% set title = category.name %}
+{% set path_components = [
+    {
+        url: '/',
+        name: _('Home')
+    }, {
+        url: '/c/' + category.id,
+        name: category.name
+    }
+] %}
+{% import "components/nothing.html" as nothing %}
+{% extends "layout/basic.html" %}
+{% block content %}
+    <div class="row">
+        <div class="medium-9 columns">
+            <div class="section">
+                <div class="section__body no-padding">
+                    <div data-fragment-id="thread_list">
+                        {% if not threads.length %}
+                            {{ nothing.render(_('Sorry, there is no threads here')) }}
+                        {% else %}
+                            <table class="data-table">
+                                <colgroup>
+                                    <col class="col--name">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th class="col--name">{{ _('Threads') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for thread in threads %}
+                                        <tr>
+                                            <td class="col--name col--problem-name">
+                                                <a href="/t/{{thread._id}}">{{thread.title}}</a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="medium-3 columns">
+            {% if user.hasPerm(PERM_THREAD_CREATE) %}
+                <div class="section side">
+                    <div class="section__header">
+                        <h1 class="section__title">{{ _('Tools') }}</h1>
+                    </div>
+                    <ol class="menu">
+                        <li class="menu__item">
+                            <a href="/c/{{ category.id }}/create" class="menu__link">
+                                <span class="icon icon-add"></span>
+                                {{ _('Create new thread') }}</a>
+                        </li>
+                    </ol>
+                    <div class="section__body">
+                        <div class="typo supplementary">
+                            <p>{{ _('You have permissions to create threads here.') }}</p>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

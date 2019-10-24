@@ -1,0 +1,16 @@
+{% macro render() %}
+    {% if no_path_section %}
+        <div class="header--mobile">
+            <div class="row">
+                <div class="columns clearfix">
+                    <div class="float-left">
+                        <a class="header--mobile__system" href="" target="_blank">SayobotBBS</a>
+                    </div>
+                    <div class="float-right">
+                        {% include "partials/hamburger.html" %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endmacro %}

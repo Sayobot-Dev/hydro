@@ -1,0 +1,5 @@
+{% set title = _("Messages") %}
+{% extends "layout/basic.html" %}
+{% block content %}
+{{ messages|json }}
+{% endblock %}

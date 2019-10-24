@@ -1,0 +1,44 @@
+{
+  "name": "hydro",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sayobot-dev/hydro.git"
+  },
+  "keywords": [
+    "hydro"
+  ],
+  "author": "masnn",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sayobot-dev/hydro/issues"
+  },
+  "homepage": "https://github.com/sayobot-dev/hydro#readme",
+  "dependencies": {
+    "bson": "^4.0.2",
+    "core-util-is": "^1.0.2",
+    "gridfs": "^1.0.0",
+    "js-yaml": "^3.13.1",
+    "koa": "^2.8.2",
+    "koa-body": "^4.1.1",
+    "koa-morgan": "^1.0.1",
+    "koa-nunjucks-2": "^3.0.2",
+    "koa-router": "^7.4.0",
+    "koa-send": "^5.0.0",
+    "koa-static": "^5.0.0",
+    "lodash": "^4.17.15",
+    "mongodb": "^3.3.2",
+    "nodemailer": "^6.3.1",
+    "socket.io": "^2.3.0",
+    "stack-trace": "^0.0.10"
+  },
+  "devDependencies": {
+    "eslint": "^6.5.1"
+  },
+  "optionalDependencies": {}
+}

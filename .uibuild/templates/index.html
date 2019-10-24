@@ -1,0 +1,24 @@
+{% set title = "Sayobot BBS" %}
+{% set path_components = [
+    {
+        url: '/',
+        name: 'Home'
+    }
+] %}
+{% extends "layout/basic.html" %}
+{% block content %}
+    <div class="row">
+        <div class="medium-9 columns">
+            <div class="section">
+                <div class="section__header">
+                    <h1 class="section__title">{{ _('Categories') }}</h1>
+                </div>
+                <div class="section__body">
+                    {% for category in categories %}
+                        <a href="/c/{{ category.id }}">{{ category.name }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

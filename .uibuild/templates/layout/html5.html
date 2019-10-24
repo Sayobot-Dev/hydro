@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html data-page="{{ page_name }}" data-layout="{{ layout_name }}" class="layout--{{ layout_name }} page--{{ page_name }} nojs" lang="{{ lang }}">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+        <meta http-equiv="X-UA-Compatible" content="chrome=1"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta name="msapplication-TileColor" content="#579e9a">
+        <meta name="theme-color" content="#56758f">
+        <link rel="stylesheet" media="all" href="https://cdn.vijos.org/vendors.css">
+        <link rel="stylesheet" media="all" href="https://cdn.vijos.org/vj4.css">
+        <title>{{ page_title }}</title>
+        <script>
+            var _htmlNode = document.documentElement;
+            _htmlNode.className = _htmlNode
+                .className
+                .replace(' nojs', ' hasjs');
+            var UiContext = {
+                url_prefix: '/',
+                cdn_prefix: 'https://cdn.vijos.org/'
+            };
+        </script>
+    </head>
+    <body>
+        <noscript>
+            <div class="section__body no-padding">
+                <blockquote class="warn">
+                    <p>{{ _('This page needs JavaScript to work.') }}</p>
+                </blockquote>
+            </div>
+        </noscript>
+        {% block body %}{% endblock %}
+        <!--[if lte IE 8]>
+            <script type="text/javascript" src="/shim.js"></script>
+        <![endif]-->
+        <script src="https://cdn.vijos.org/manifest.js"></script>
+        <script src="https://cdn.vijos.org/vendors.js"></script>
+        <script src="https://cdn.vijos.org/vj4.js"></script>
+    </body>
+</html>

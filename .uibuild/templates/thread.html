@@ -1,0 +1,124 @@
+{% set title = thread.title %}
+{% macro _reply(reply) %}
+    <li class="dczcomments__reply">
+        <div class="media">
+            <div class="media__body top no-heading">
+                <div class="clearfix">
+                    <div class="supplementary dczcomments__supplementary">
+                        {{ reply.author.uname }} @ {{ reply.time }}
+                    </div>
+                </div>
+                <div class="typo" data-emoji-enabled>
+                    {{ reply.content }}
+                </div>
+                <div class="commentbox-edit-target"></div>
+            </div>
+        </div>
+    </li>
+{% endmacro %}
+
+{% macro _comment(comment) %}
+    <li class="dczcomments__item">
+        <div class="media">
+            <div class="media__left top">
+                <div class="vote vote--discussion">
+                    <div class="vote-number">{{ comment.vote }}</div>
+                </div>
+            </div>
+            <div class="media__body top no-heading">
+                <div class="clearfix">
+                    <div class="supplementary dczcomments__supplementary">
+                        {{ comment.author.uname }} @ [Time{{ comment._id.generationTime }}]
+                    </div>
+                </div>
+                <div class="typo" data-emoji-enabled>
+                    {{ comment.content }}
+                </div>
+                <div class="commentbox-edit-target"></div>
+                <ul class="dczcomments__replies commentbox-reply-target">
+                    {% for rdoc in comment.reply %}
+                        {{ _reply(rdoc) }}
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </li>
+{% endmacro %}
+
+{% extends "layout/basic.html" %}
+{% block content %}
+    <div class="row">
+        <div class="medium-9 columns">
+            <div class="section">
+                <div class="problem-content-container">
+                    <div class="problem-content" data-marker-enabled>
+                        <div class="section__header non-scratchpad--hide">
+                            <h1>{{ thread.title }}</h1>
+                        </div>
+                        <div class="section__body typo">
+                            {{ thread.content }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="section">
+                <div class="section__header">
+                    <h1 class="section__title">{{ comments.length }} {{ _('Comments') }}</h1>
+                </div>
+                <div class="section__body">
+                    {% for comment in comments %}
+                        {#{% if (user.hasPerm(PERM_COMMENT_DELETE)or user._id.toHexString() == comment.author._id.toHexString()) %}
+                            <a href="/t/{{thread._id.toHexString()}}/{{comment._id.toHexString()}}/delete">Delete comment</a>
+                        {% endif %}
+                        <p>{{ comment.author.uname }} / {{ comment._id.generationTime }}</p>
+                        <p>{{ comment.content }}</p>#}
+                        {{ _comment(comment) }}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="medium-3 columns">
+            <div class="section side section--problem-sidebar">
+                <div>
+                    <ol class="menu">
+                        {% if user.hasPerm(PERM_THREAD_DELETE)or user
+                            ._id
+                            .toHexString() == thread
+                            .author
+                            ._id
+                            .toHexString() %}
+                            <li class="menu__seperator"></li>
+                            <li class="menu__item">
+                                <a class="menu__link" href="/t/{{thread._id.toHexString()}}/delete">
+                                    <span class="icon icon-edit"></span>
+                                    {{ _('Delete thread') }}
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ol>
+                </div>
+            </div>
+            <div class="section side">
+                <div class="section__header">
+                    <h1 class="section__title">{{ _('Information') }}</h1>
+                </div>
+                <div class="section__body typo">
+                    <dl class="large horizontal">
+                        <dt>{{ _('Created By') }}</dt>
+                        <dd>{{ thread.author.uname }}</dd>
+                    </dl>
+                    <dl class="large horizontal">
+                        <dt>{{ _('Created At') }}</dt>
+                        <dd>[Time{{ thread._id.generationTime }}]</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if user.hasPerm(PERM_THREAD_REPLY) %}
+        <form id="comment" method="POST" action="/t/{{thread._id.toHexString()}}/comment">
+            Your comment here:<input type="text" name="content"></input>
+            <button type="submit">{{ _('Submit') }}</button>
+        </form>
+    {% endif %}
+{% endblock %}

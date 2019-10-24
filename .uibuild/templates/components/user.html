@@ -1,0 +1,13 @@
+{% macro render_inline(udoc, avatar = true, badge = true, modbadge = true) %}
+    <span class="user-profile-link">
+        {% if avatar %}
+            <img class="small user-profile-avatar v-center" src="{{ udoc.gravatar }}" width="20" height="20">
+        {% endif %}
+        <a class="user-profile-name" href="/user/{{ udoc._id.toHexString() }}">
+            {{ udoc.uname }}
+        </a>
+        {% if modbadge and user.hasPerm(PERM_ADMIN) %}
+            <span class="user-profile-badge v-center badge--mod" title="Moderator">MOD</span>
+        {% endif %}
+    </span>
+{% endmacro %}

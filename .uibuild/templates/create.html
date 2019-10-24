@@ -1,0 +1,59 @@
+{% set title = _("Create new thread") %}
+{% set path_components = [
+    {
+        url: '/',
+        name: _('Home')
+    }, {
+        url: '/c/' + category.id,
+        name: category.name
+    }, {
+        url: '/c/' + category.id + '/create',
+        name: _("Create new thread")
+    }
+] %}
+{% extends "layout/basic.html" %}
+{% block content %}
+    {% if user.hasPerm(PERM_THREAD_CREATE) %}
+        <div class="row">
+            <div class="medium-9 columns">
+                <div class="section">
+                    <div class="section__body">
+                        <form method="post">
+                            <div class="row">
+                                <div class="medium-8 columns">
+                                    <label>
+                                        {{ _('Title') }}
+                                        <input name="title" placeholder="{{ _('Title') }}" class="textbox" autofocus>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="columns">
+                                    <label>
+                                        {{ _('Content') }}
+                                        <textarea name="content" class="textbox" data-markdown style="height: 500px"></textarea>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="columns">
+                                    <button type="submit" class="rounded primary button">
+                                        {{ _('Create') }}
+                                    </button>
+                                    <button type="button" class="rounded button" onclick="window.history.go(-1)">
+                                        {{ _('Cancel') }}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="medium-3 columns">
+                {% include 'components/md_hint.html' ignore missing %}
+            </div>
+        </div>
+    {% else %}
+        <p>{{ _("You don't have permission to create a thread here.") }}</p>
+    {% endif %}
+{% endblock %}
