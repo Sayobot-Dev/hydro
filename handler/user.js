@@ -3,7 +3,7 @@ const
     { BadRequestError } = require('../util/errors.js'),
     { UID_GUEST } = require('../constants.js');
 
-module.exports = class HANDLER_USER {
+exports.handler = class {
     constructor(i) {
         this.db = i.db;
         this.lib = i.lib;

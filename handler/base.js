@@ -1,7 +1,7 @@
 const
     { ObjectID } = require('bson'),
     constants = require('../constants.js');
-module.exports = class HANDLER_BASE {
+exports.handler = class {
     constructor(i) {
         this.db = i.db;
         this.lib = i.lib;
@@ -15,12 +15,6 @@ module.exports = class HANDLER_BASE {
     async init() {
         return async (ctx, next) => {
             if (this.cfg.ip_header) ctx.request.ip = ctx.request.headers[this.cfg.ip_header];
-            else ctx.request.ip =
-                ctx.request.headers['X-Forwarded-For'] ||
-                ctx.request.headers['x-forwarded-for'] ||
-                ctx.request.headers['X-Real-IP'] ||
-                ctx.request.headers['x-real-ip'] ||
-                ctx.request.ip;
             let sessionid = new ObjectID(ctx.cookies.get('sayobot.bbs.sessionid')) || constants.UID_GUEST;
             ctx.session = (await this.db.collection('session').findOne({ _id: sessionid })) || {};
             ctx.session.uid = ctx.session.uid || constants.UID_GUEST;

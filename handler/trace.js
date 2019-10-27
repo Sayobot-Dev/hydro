@@ -1,6 +1,6 @@
 const statuses = require('statuses');
 const { BadRequestError, NotFoundError, PermissionError } = require('../util/errors.js');
-module.exports = class TRACE {
+exports.handler = class {
     constructor() { }
     init() {
         return (ctx, next) => {

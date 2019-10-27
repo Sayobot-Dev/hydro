@@ -67,12 +67,9 @@ exports.app = class Hydro extends EventEmitter {
             }
             this.handler[i] = r.routes();
         }
-        this.app.use(async ctx => {
-            if (this.handler[ctx.hostname]) {
-                await this.handler[ctx.hostname](ctx,null);
-                return;
-            }
-        })
+        this.app.use(ctx => {
+            if (this.handler[ctx.hostname]) return this.handler[ctx.hostname](ctx);
+        });
         if (this.cfg.postLoad) {
             if (typeof this.cfg.postLoad != 'function') throw new Error('postLoad must be a function!');
             let res = this.cfg.postLoad();
@@ -177,7 +174,11 @@ exports.app = class Hydro extends EventEmitter {
                 })
             ]
         } else {
-            let t = new target(this);
+            if (target.init) {
+                let t = target.init();
+                if (t instanceof Promise) await t;
+            }
+            let t = new target.handler(this);
             let r = t.init();
             if (r instanceof Promise) r = await r;
             if (typeof r == 'object') return [r.routes(), r.allowedMethods()];
