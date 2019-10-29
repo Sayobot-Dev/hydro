@@ -1,12 +1,14 @@
 const
     { ObjectID } = require('bson'),
-    constants = require('../constants.js');
+    UID_GUEST = new ObjectID('000000000000000000000000');
+
 exports.handler = class {
     constructor(i) {
         this.db = i.db;
         this.lib = i.lib;
         this.locales = i.locales;
         this.cfg = i.cfg;
+        this.constants = i.constants;
     }
     i18n(lang) {
         if (this.locales[lang]) return str => this.locales[lang][str] || str;
@@ -15,11 +17,16 @@ exports.handler = class {
     async init() {
         return async (ctx, next) => {
             if (this.cfg.ip_header) ctx.request.ip = ctx.request.headers[this.cfg.ip_header];
-            let sessionid = new ObjectID(ctx.cookies.get('sayobot.bbs.sessionid')) || constants.UID_GUEST;
+            let sessionid = new ObjectID(ctx.cookies.get('sayobot.bbs.sessionid')) || UID_GUEST;
             ctx.session = (await this.db.collection('session').findOne({ _id: sessionid })) || {};
-            ctx.session.uid = ctx.session.uid || constants.UID_GUEST;
-            Object.assign(ctx.state, constants);
-            ctx.state.user = new this.lib.user.user(await this.lib.user.getByUID(ctx.session.uid));
+            ctx.session.uid = ctx.session.uid || UID_GUEST;
+            Object.assign(ctx.state, this.cfg.perm, this.constants);
+            try {
+                ctx.state.user = new this.lib.user.user(await this.lib.user.getByUID(ctx.session.uid));
+            } catch (e) {
+                ctx.state.user = new this.lib.user.user(await this.lib.user.getByUID(UID_GUEST));
+                ctx.session.uid = UID_GUEST;
+            }
             let languages = (ctx.request.headers['accept-language'] || '').split(';')[0].split(',');
             let language = this.cfg.LANGUAGE;
             for (let i of languages)
@@ -36,7 +43,7 @@ exports.handler = class {
             await next();
             if (ctx.session._id) await this.db.collection('session').save(ctx.session);
             else {
-                if (ctx.session.uid == constants.UID_GUEST && !ctx.session.language) return;
+                if (ctx.session.uid == UID_GUEST && !ctx.session.language) return;
                 let session = await this.db.collection('session').insertOne(ctx.session);
                 ctx.cookies.set('sayobot.bbs.sessionid', session.insertedId);
             }

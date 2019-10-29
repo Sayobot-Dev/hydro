@@ -14,8 +14,11 @@ exports.log = require('./util/log.js');
 exports.handler = {
     base: require('./handler/base.js'),
     trace: require('./handler/trace.js'),
-    user: require('./handler/user.js')
+    user: require('./handler/user.js'),
+    requirePerm: perm => (ctx, next) => ctx.state.user.hasPerm(perm) ? next() : Promise.resolve(),
+    merge: (ctx, next) => { Object.assign(ctx.request.body, ctx.query); return next(); }
 };
+exports.UID_GUEST = new bson.ObjectID('000000000000000000000000');
 exports.app = class Hydro extends EventEmitter {
     constructor(Hydro_config) {
         super();
@@ -24,6 +27,8 @@ exports.app = class Hydro extends EventEmitter {
             Hydro_config.preConstruct();
         }
         this.cfg = Hydro_config;
+        this.constants = this.cfg.constants || {};
+        this.cfg.perm = this.cfg.perm || {};
         this.locales = {};
         this.lib = {};
         this.status = {};
@@ -133,13 +138,13 @@ exports.app = class Hydro extends EventEmitter {
     async Lib(lib) {
         if (lib == '@') {
             let user = require('./lib/user.js');
-            this.lib.user = new user({ db: this.db, lib: this.lib });
+            this.lib.user = new user(this);
             let crypto = require('./lib/crypto.js');
-            this.lib.crypto = new crypto();
+            this.lib.crypto = new crypto(this);
             let token = require('./lib/token.js');
-            this.lib.token = new token({ db: this.db });
+            this.lib.token = new token(this);
             let mail = require('./lib/mail.js');
-            this.lib.mail = new mail({ db: this.db, lib: this.lib });
+            this.lib.mail = new mail(this);
         } else {
             this.lib[lib.name] = new lib.lib(this);
             if (this.lib[lib.name].init) {
@@ -172,7 +177,7 @@ exports.app = class Hydro extends EventEmitter {
                         trimBlocks: true
                     }
                 })
-            ]
+            ];
         } else {
             if (target.init) {
                 let t = target.init();

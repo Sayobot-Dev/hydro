@@ -30,6 +30,7 @@
             "always"
         ],
         "no-unused-vars": "warn",
-        "no-var": "warn"
+        "no-var": "warn",
+        "require-atomic-updates": "warn"
     }
 }

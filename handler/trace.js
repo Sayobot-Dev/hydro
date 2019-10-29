@@ -15,7 +15,12 @@ exports.handler = class {
                     if (typeof err.status !== 'number' || !statuses[err.status])
                         err.status = 500;
                     ctx.status = err.status;
-                    ctx.body = `<pre>${err.toString()}</pre><br/><pre>${err.stack}</pre>`;
+                    if (ctx.prefer_json)
+                        ctx.body = { error: err.toString(), stack: err.stack };
+                    else {
+                        ctx.body = `<pre>${err.toString()}</pre><br/><pre>${err.stack}</pre>`;
+                        ctx.response.type = 'text/html';
+                    }
                 }
             });
         };

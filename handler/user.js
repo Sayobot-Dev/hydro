@@ -1,7 +1,7 @@
 const
     Router = require('koa-router'),
     { BadRequestError } = require('../util/errors.js'),
-    { UID_GUEST } = require('../constants.js');
+    UID_GUEST = new (require('bson').ObjectID)('000000000000000000000000');
 
 exports.handler = class {
     constructor(i) {
