@@ -3,10 +3,7 @@ const
     bson = require('bson'),
     Koa = require('koa'),
     Router = require('koa-router'),
-    fs = require('fs'),
     path = require('path'),
-    yaml = require('js-yaml'),
-    mongo = require('mongodb'),
     EventEmitter = require('events');
 
 exports.errors = require('./util/errors.js');
@@ -15,6 +12,8 @@ exports.handler = {
     base: require('./handler/base.js'),
     trace: require('./handler/trace.js'),
     user: require('./handler/user.js'),
+    nunjucks: require('./handler/nunjucks.js'),
+    log: require('./handler/log.js'),
     requirePerm: perm => (ctx, next) => ctx.state.user.hasPerm(perm) ? next() : Promise.resolve(),
     merge: (ctx, next) => { Object.assign(ctx.request.body, ctx.query); return next(); }
 };
@@ -29,11 +28,11 @@ exports.app = class Hydro extends EventEmitter {
         this.cfg = Hydro_config;
         this.constants = this.cfg.constants || {};
         this.cfg.perm = this.cfg.perm || {};
-        this.locales = {};
         this.lib = {};
         this.status = {};
         this.sockets = [];
         this.handler = [];
+        this.queue = [];
         this.serviceID = new bson.ObjectID();
         this.app = new Koa();
         this.app.keys = this.cfg.keys || ['Hydro'];
@@ -51,15 +50,16 @@ exports.app = class Hydro extends EventEmitter {
         this.router = new Router();
         this.server = require('http').createServer(this.app.callback());
         this.io = require('socket.io')(this.server, { cookie: true });
-        this.cfg.ui_path = path.resolve(this.cfg.ui_path);
-        log.log('Using ui folder: ', this.cfg.ui_path);
-        if (!fs.existsSync(this.cfg.ui_path)) throw new Error('No UI files found!');
-        await this.connectDatabase();
-        await this.loadLocale();
-        await this.mountLib();
-        let deploy = require('./util/deploy.js');
-        if (this.cfg.deploy) deploy = this.cfg.deploy;
-        if (!await deploy(this.db, this.lib)) return;
+        this.app.use(
+            require('koa-morgan')(':method :url :status :res[content-length] - :response-time ms'));
+        for (let i of this.cfg.middleware)
+            for (let lib of i.depends)
+                await this.PrepareLib(lib);
+        for (let i in this.cfg.hosts)
+            for (let j of this.cfg.hosts[i])
+                for (let lib of j.depends)
+                    await this.PrepareLib(lib);
+        for (let i of this.queue) await this.Lib(i);
         for (let i of this.cfg.middleware) {
             let h = await this.Handler(i);
             for (let j of h) this.app.use(j);
@@ -72,9 +72,11 @@ exports.app = class Hydro extends EventEmitter {
             }
             this.handler[i] = r.routes();
         }
-        this.app.use(ctx => {
-            if (this.handler[ctx.hostname]) return this.handler[ctx.hostname](ctx);
-        });
+        this.app.use(ctx =>
+            this.handler[ctx.hostname]
+                ? this.handler[ctx.hostname](ctx, () => { })
+                : Promise.resolve()
+        );
         if (this.cfg.postLoad) {
             if (typeof this.cfg.postLoad != 'function') throw new Error('postLoad must be a function!');
             let res = this.cfg.postLoad();
@@ -89,14 +91,14 @@ exports.app = class Hydro extends EventEmitter {
             let res = this.cfg.preListen();
             if (res instanceof Promise) await res;
         }
-        await this.server.listen((await this.lib.conf.get('bbs.port')) || '10001');
+        await this.server.listen((await this.lib.config.get('port')) || '10001');
         if (this.cfg.postListen) {
             if (typeof this.cfg.postListen != 'function') throw new Error('postListen must be a function!');
             let res = this.cfg.postListen();
             if (res instanceof Promise) await res;
         }
         this.status.listening = true;
-        log.log('Server listening on port: %s', (await this.lib.conf.get('bbs.port')) || '10001');
+        log.log('Server listening on port: %s', (await this.lib.config.get('port')) || '10001');
     }
     async stop() {
         await this.server.close();
@@ -108,77 +110,44 @@ exports.app = class Hydro extends EventEmitter {
     async restart() {
         process.emit('restart');
     }
-    async connectDatabase() {
-        try {
-            let Database = await require('mongodb').MongoClient.connect(
-                this.cfg.db_url, { useNewUrlParser: true, useUnifiedTopology: true }
-            );
-            this.db = Database.db(this.cfg.db_name);
-            this.gfs = require('gridfs')(this.db, mongo);
-        } catch (e) {
-            log.error('Unable to connect to database.');
-            log.error(e);
-            process.exit(1);
-        }
-    }
-    async loadLocale() {
-        let locales = fs.readdirSync(path.resolve(this.cfg.ui_path, 'locales'));
-        for (let i of locales) {
-            let locale = yaml.safeLoad((fs.readFileSync(path.resolve(this.cfg.ui_path, 'locales', i))));
-            let name = i.split('.')[0];
-            this.locales[name] = locale;
-        }
-    }
-    async mountLib() {
-        let conf = require('./lib/config.js');
-        this.lib.conf = new conf({ db: this.db });
-        await this.setConfig();
-        for (let i of this.cfg.lib) await this.Lib(i);
-    }
-    async Lib(lib) {
-        if (lib == '@') {
-            let user = require('./lib/user.js');
-            this.lib.user = new user(this);
-            let crypto = require('./lib/crypto.js');
-            this.lib.crypto = new crypto(this);
-            let token = require('./lib/token.js');
-            this.lib.token = new token(this);
-            let mail = require('./lib/mail.js');
-            this.lib.mail = new mail(this);
-        } else {
-            this.lib[lib.name] = new lib.lib(this);
-            if (this.lib[lib.name].init) {
-                let r = this.lib[lib.name].init();
-                if (r instanceof Promise) await r;
+    async PrepareLib(lib) {
+        if (typeof lib == 'string') {
+            try {
+                lib = require(path.resolve(__dirname, 'lib', lib));
+            } catch (e) {
+                lib = require(path.resolve(process.cwd(), 'lib', lib));
             }
         }
+        for (let l of lib.depends) await this.PrepareLib(l);
+        if (!this.queue.includes(lib.id)) this.queue.push(lib.id);
     }
-    async setConfig() {
-        for (let i in this.cfg.config)
-            await this.lib.conf.set(i, this.cfg.config[i]);
+    async Lib(lib) {
+        if (typeof lib == 'string') {
+            try {
+                lib = require(path.resolve(__dirname, 'lib', lib));
+            } catch (e) {
+                lib = require(path.resolve(process.cwd(), 'lib', lib));
+            }
+        }
+        log.log(`[INIT] lib::${lib.id}`);
+        if (lib.type == 'function') await lib.lib(this);
+        else {
+            this.lib[lib.id] = new lib.lib(this);
+            if (this.lib[lib.id].init) {
+                let r = this.lib[lib.id].init();
+                if (r instanceof Promise) await r;
+                if (!r) throw new Error(`[FAIL] lib::${lib.id}`);
+            }
+        }
+        log.log(`[DONE] lib::${lib.id}`);
     }
     async Handler(target) {
-        if (target == '@') {
-            return [
-                require('koa-static')(path.resolve(this.cfg.ui_path, 'public')),
-                require('koa-morgan')(':method :url :status :res[content-length] - :response-time ms'),
-                require('koa-body')({
-                    patchNode: true,
-                    multipart: true,
-                    formidable: {
-                        uploadDir: path.join(__dirname, 'uploads'),
-                        keepExtensions: true
-                    }
-                }),
-                require('koa-nunjucks-2')({
-                    ext: 'html',
-                    path: path.join(this.cfg.ui_path, 'templates'),
-                    nunjucksConfig: {
-                        trimBlocks: true
-                    }
-                })
-            ];
-        } else {
+        log.log(`[HANDLER] ${target.id}`);
+        if (target.handler instanceof Array)
+            return target.handler;
+        else if (target.type == 'function')
+            return [target.handler];
+        else {
             if (target.init) {
                 let t = target.init();
                 if (t instanceof Promise) await t;
@@ -186,7 +155,8 @@ exports.app = class Hydro extends EventEmitter {
             let t = new target.handler(this);
             let r = t.init();
             if (r instanceof Promise) r = await r;
-            if (typeof r == 'object') return [r.routes(), r.allowedMethods()];
+            if (r instanceof Array) return r;
+            else if (typeof r == 'object') return [r.routes(), r.allowedMethods()];
             else return [r];
         }
     }

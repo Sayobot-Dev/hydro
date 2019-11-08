@@ -26,3 +26,5 @@ exports.handler = class {
         };
     }
 };
+exports.depends = [];
+exports.id = 'trace';

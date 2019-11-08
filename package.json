@@ -21,18 +21,18 @@
   "homepage": "https://github.com/sayobot-dev/hydro#readme",
   "dependencies": {
     "bson": "^4.0.2",
-    "gridfs": "^1.0.0",
+    "gridfs-stream": "^1.1.1",
     "js-yaml": "^3.13.1",
     "koa": "^2.8.2",
     "koa-body": "^4.1.1",
     "koa-morgan": "^1.0.1",
-    "koa-nunjucks-2": "^3.0.2",
     "koa-router": "^7.4.0",
     "koa-send": "^5.0.0",
     "koa-static": "^5.0.0",
     "lodash": "^4.17.15",
     "mongodb": "^3.3.2",
     "nodemailer": "^6.3.1",
+    "nunjucks": "^3.2.0",
     "socket.io": "^2.3.0"
   },
   "devDependencies": {

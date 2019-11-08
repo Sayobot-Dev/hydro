@@ -6,13 +6,9 @@ exports.handler = class {
     constructor(i) {
         this.db = i.db;
         this.lib = i.lib;
-        this.locales = i.locales;
         this.cfg = i.cfg;
+        this.locales = i.locales;
         this.constants = i.constants;
-    }
-    i18n(lang) {
-        if (this.locales[lang]) return str => this.locales[lang][str] || str;
-        else return str => str;
     }
     async init() {
         return async (ctx, next) => {
@@ -32,7 +28,8 @@ exports.handler = class {
             for (let i of languages)
                 if (this.locales[i]) language = i;
             language = ctx.session.language || language;
-            ctx.state._ = this.i18n(language);
+            ctx.state._ = this.lib.i18n.getter(language);
+            ctx.state.hostname = ctx.request.hostname;
             ctx.json = (json, code = 200) => {
                 ctx.body = JSON.stringify(json);
                 ctx.code = code;
@@ -50,3 +47,5 @@ exports.handler = class {
         };
     }
 };
+exports.id = 'base';
+exports.depends = ['i18n', 'database', 'user'];
